@@ -118,7 +118,7 @@ contract SellKeey {
     uint256 public priceUSDT;
     Keey public keey;
     USDT public usdt;
-
+    bool internal isSuccess;
     mapping(address => uint256) public lastReceived;
 
     event Sold(address buyer, uint256 amount);
@@ -126,7 +126,10 @@ contract SellKeey {
     constructor() {
         minter = msg.sender;
         keey = new Keey("Keey Coin", "KEEY", 0, 2500);
-        usdt = new USDT(0x90F79bf6EB2c4f870365E785982E1f101E93b906, 100000*(10**18));//Add balance USDT for adress b906
+        usdt = new USDT(
+            0x90F79bf6EB2c4f870365E785982E1f101E93b906,
+            100000 * (10**18)
+        ); //Add balance USDT for adress b906
         priceEther = (1 / 100) * (10**18);
         priceUSDT = 10000 * (10**18);
     }
@@ -170,11 +173,14 @@ contract SellKeey {
             "Just 01 tranfer per day for this address!!!"
         );
 
-        //Send usdt to contract for main net
+        //Send usdt to contract for main net // with testnet must creat new token pool USDT and replace address
         // IERC20 usdt = IERC20(address(0xdAC17F958D2ee523a2206206994597C13D831ec7));//Address contract USDT
 
-        //Send usdt to contract for testnet/local
-        require(usdt.transferFrom(msg.sender,address(this), valueToBuy),"Not enough USDT in your wallet!!!");
+        //Send usdt to contract for local
+        require(
+            usdt.transferFrom(msg.sender, address(this), valueToBuy),
+            "Not enough USDT in your wallet!!!"
+        );
 
         //Then send Keey
         require(keey.transfer(msg.sender, value), "error send keey");
@@ -198,5 +204,12 @@ contract SellKeey {
 
     function updateLastReceived(address receiver) internal {
         lastReceived[receiver] = block.timestamp;
+    }
+
+    function getLastReceived(address receiver) public view returns (bool) {
+        if (block.timestamp - lastReceived[msg.sender] > 1 days) {
+            return true;
+        }
+        return false;
     }
 }

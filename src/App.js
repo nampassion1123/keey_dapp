@@ -3,7 +3,9 @@ import 'bulma/css/bulma.min.css';
 import { useState } from 'react';
 import { ethers } from 'ethers';
 import SellKeey from './artifacts/contracts/Keey.sol/SellKeey.json';
-const keeyAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+import USDT from './artifacts/contracts/USDT.sol/USDT.json';
+const keeyAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";//replace keey and usdt address in console web
+const usdtAddress = "0xB7A5bd0345EF1Cc5E66bf61BdeC17D2461fBd968";
 const hStyle = { color: 'red' };
 
 function App() {
@@ -16,7 +18,7 @@ function App() {
   const provider = new ethers.providers.Web3Provider(window.ethereum)
   const signer = provider.getSigner()
   const contract = new ethers.Contract(keeyAddress, SellKeey.abi, signer)
-
+  const contractUSDT = new ethers.Contract(usdtAddress, USDT.abi, signer)
 
   // Conect to Metamask 
   const connectWalletHandler = () => {
@@ -40,15 +42,15 @@ function App() {
     setDefaultAccount(newAccount);
   }
 
-
-
   const chainChangedHandler = () => {
     window.location.reload();
     balanceOfContract()
   }
 
+
   window.ethereum.on('accountsChanged', accountChangedHandler);
   window.ethereum.on('chainChanged', chainChangedHandler);
+
 
   //Get balance of contract and adress contract
   async function balanceOfContract() {
@@ -57,13 +59,11 @@ function App() {
 
     const testKeey = await contract.keey();
     const testUSDT = await contract.usdt();
-
     console.log("Keey address:" + testKeey)
     console.log("USDT address:" + testUSDT)
   }
 
   balanceOfContract()
-
 
 
   // TEST BUY BY ETHER : DONE
@@ -85,7 +85,11 @@ function App() {
 
   // TEST BUY BY USDT : DONE
   async function sellKeey() {
+    const lastReceiver = await contract.getLastReceived(defaultAccount);
     const balanceOfAddress = (await contract.balanceOf(defaultAccount)).toString();
+    const balanceUSDT = (await contractUSDT.balanceOf(defaultAccount)).toString();
+
+    //Require when buy Keey
     if (!valueBuy) return
     if (valueBuy < 1) {
       setErrorShowing("You need to buy at least some tokens!!!")
@@ -93,17 +97,25 @@ function App() {
     } else if (valueBuy > 2) {
       setErrorShowing("Wallet can only buy up to 2 KEEY!!!")
       return
-    } else if (balanceOfAddress + valueBuy > 2) {
+    } else if (balanceOfAddress + valueBuy > 2 && lastReceiver === true) {
       setErrorShowing("Wallet can only buy up to 2 KEEY!!!")
+      return
+    } else if (lastReceiver === false) {
+      setErrorShowing("Just 01 tranfer per day for this address!!!")
       return
     }
 
-    if (typeof window.ethereum !== 'undefined') {
-      const transaction = await contract.sellKeeyByUsdt(Number(valueBuy))
-      debugger
-      await transaction.wait()
+    //Get return true or false when func sellKeeyByUsdt run
+    if (Number(balanceUSDT) < valueBuy * 10000) {
+      setErrorShowing("Not enough USDT in your wallet!!!")
+      return
+    } else {
+      if (typeof window.ethereum !== 'undefined') {
+        const transaction = await contract.sellKeeyByUsdt(Number(valueBuy))
+        await transaction.wait()
+        balanceOfContract()
+      }
     }
-    balanceOfContract()
   }
 
 
@@ -128,8 +140,9 @@ function App() {
         </div >
         <br />
         < div >
-          <div className="faucet is-size-5" > Wallet Adress: {defaultAccount}
+          <div className="faucet is-size-5" > Wallet address: {defaultAccount}
           </div>
+
         </div >
       </div>
     </div >
